@@ -16,6 +16,8 @@ export default {
       mixins: mixins(),
       services: {},
       providers: [],
+      initializations: [],
+      _initializationsPromise: null,
       _setup: false
     });
   },
@@ -112,12 +114,29 @@ export default {
   // Environment specific configurations should be done as suggested in the 4.x migration guide:
   // https://github.com/visionmedia/express/wiki/Migrating-from-3.x-to-4.x
   configure (fn) {
-    fn.call(this);
+    const initialization = fn.call(this);
+    
+    if (initialization) {
+      this.initializations.push(initialization);
+    }
 
     return this;
   },
+  
+  toPromise () {
+    if (!this._initializationsPromise) {
+      this._initializationsPromise = Promise.all(this.initializations).then(() => {
+        this.initializations.length = 0;
+        return this;
+      });
+    }
+    
+    return this._initializationsPromise;
+  },
 
   listen () {
+    this.toPromise();
+    
     const server = this._super.apply(this, arguments);
 
     this.setup(server);
